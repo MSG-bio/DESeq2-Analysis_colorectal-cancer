@@ -1,8 +1,13 @@
+# DESeq2 Differential Expression Analysis
+# Dataset: GSE142279 (colorectal cancer, 20 tumour vs 20 adjacent normal)
+# Author: MSG-bio
+# Date: May 2026
+
+
 #Let's load the library 
 library(DESeq2)
 
 #Other important packages
-install.packages(c("ggplot2", "pheatmap", "RColorBrewer", "ggrepel"))
 
 library(ggplot2)
 library(pheatmap)
@@ -11,8 +16,6 @@ library(ggrepel)
 library(EnhancedVolcano)
 library(GEOquery)
 library(org.Hs.eg.db)
-
-#"C:/Users/garci/Desktop/Miriam/Independent learning/R Studies/Portfolio/DEseq2_CC"
 library(tidyverse)
 library(dplyr)
 
@@ -21,14 +24,13 @@ library(dplyr)
 dat <- read_tsv(file = 'GSE142279_raw_counts_GRCh38.p13_NCBI.tsv')
 dim(dat)
 head(dat)
+
 #get metadata
 
 gse <- getGEO(GEO= "GSE142279", GSEMatrix = TRUE)
 names(pData(gse[[1]])) 
 metadata <- pData(phenoData(gse[[1]]))
 head(metadata)
-#metadata_subset <- select(metadata, c(1,2,10,36))
-#head(metadata_subset)
 
 metadata.mod <- metadata %>%
   select(1,2,36) %>%
@@ -36,18 +38,7 @@ metadata.mod <- metadata %>%
 
 #Reshape the data
 
-#dat.long <- dat %>%
- # pivot_longer(cols = starts_with ('GSM'), names_to = 'samples', values_to = 'count')
-
-
-#Join expression data with metadata
-
-#dat.joined <- dat.long %>%
- # left_join(. , metadata.mod, by = c("samples" = "geo_accession"))
-
-
-
-#For analysis of gene long format is best. For DEseq2 we need wider fromet.
+#For analysis of gene long format is best. For DEseq2 we need wider format.
 #So gene ID = rows and samples = columns
 
 dat <- as.data.frame(dat)
@@ -96,32 +87,14 @@ table(res.sig$log2FoldChange > 0)
 
 #Visualization
 
-
-EnhancedVolcano(res,
-                lab     = rownames(res),
-                x       = 'log2FoldChange',
-                y       = 'padj',
-                pCutoff = 0.05,
-                FCcutoff = 1,
-                title   = 'Tumour vs Adjacent Normal',
-                subtitle = 'Colorectal Cancer — GSE142279')
-
-library(org.Hs.eg.db)
-
 # convert Entrez IDs to gene symbols
 gene_symbols <- mapIds(org.Hs.eg.db,
                        keys      = rownames(res),
                        column    = "SYMBOL",
                        keytype   = "ENTREZID",
                        multiVals = "first")
-EnhancedVolcano(res,
-                lab      = gene_symbols,
-                x        = 'log2FoldChange',
-                y        = 'padj',
-                pCutoff  = 0.05,
-                FCcutoff = 1,
-                title    = 'Tumour vs Adjacent Normal',
-                subtitle = 'Colorectal Cancer — GSE142279')
+
+#Volcano Plot
 png("Volcano_plot_GSE142279_final.png", width = 10, height = 8, units = "in", res = 300)
 
 EnhancedVolcano(res,
@@ -136,41 +109,25 @@ EnhancedVolcano(res,
 dev.off()
 
 #heatmap
+
 # order results by adjusted p-value and take top 30
 top30 <- order(res$padj)[1:30]
 
-# extract normalised counts for those genes
+# extract normalized counts for those genes
 mat <- counts(dds, normalized = TRUE)[top30, ]
 
-# log2 transform for visualisation
+# log2 transform for visualization
 mat <- log2(mat + 1)
 
 # swap Entrez IDs for gene symbols as row names
 rownames(mat) <- gene_symbols[rownames(mat)]
 
-library(pheatmap)
 
-# create annotation showing which samples are tumour vs normal
+# create annotation showing which samples are tumor vs normal
 annotation <- data.frame(
   Tissue = metadata.mod$tissue,
   row.names = rownames(metadata.mod)
 )
-
-pheatmap(mat,
-         annotation_col = annotation,
-         show_colnames  = FALSE,
-         fontsize_row   = 8,
-         main           = "Top 30 DE Genes — GSE142279")
-
-png("Heatmap_GSE142279_final.png", width = 10, height = 12, units = "in", res = 300)
-
-pheatmap(mat,
-         annotation_col = annotation,
-         show_colnames  = FALSE,
-         fontsize_row   = 8,
-         main           = "Top 30 DE Genes — GSE142279")
-
-dev.off()
 
 png("Heatmap_GSE142279_final.png", width = 10, height = 12, units = "in", res = 300)
 
